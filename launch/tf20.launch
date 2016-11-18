@@ -1,0 +1,7 @@
+<launch>
+  <node pkg="de_lidar" name="tf20_node" type="tf20_node" output="screen">
+    <param name="device" type="string" value="/dev/ttyUSB0"/>
+  </node> 
+  
+</launch>
+
