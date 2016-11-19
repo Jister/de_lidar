@@ -118,9 +118,9 @@ include_directories(
 )
 
 ## Declare a C++ library
-# add_library(kalman_filter
-#   src/${PROJECT_NAME}/kalman_filter.cpp
-# )
+add_library(tf20_lib
+  src/tf20.cpp
+)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -131,6 +131,7 @@ include_directories(
 add_executable(tf20_node src/tf20_node.cpp)
 target_link_libraries(tf20_node
   ${catkin_LIBRARIES}
+  tf20_lib
 )
 
 #############
