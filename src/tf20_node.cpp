@@ -13,20 +13,27 @@
 #include <errno.h>
 
 #define BAUDRATE 	460800
-#define MAXSIZE 	50
+#define MAXSIZE 	100
 #define BUF_SIZE 	24
 
 int ret;
 int serial_fd;
 std::string device;
-char read_buf[BUF_SIZE];
-char ring_buf[MAXSIZE];
-char data_buf[24];
+unsigned char read_buf[BUF_SIZE];
+unsigned char ring_buf[MAXSIZE];
+unsigned char data_buf[24];
 int read_addr = 0;
 int write_addr = 0;
 
+char setup_enter[8] = {0xAA, 0x55, 0xF0, 0x00, 0x01, 0x00, 0x00, 0x02};
+char setup_exit[8] = {0xAA, 0x55, 0xF0, 0x00, 0x00, 0x00, 0x00, 0x02};
+char mode_1x1[8] = {0xAA, 0x55, 0xF0, 0x00, 0x01, 0x00, 0x00, 0x08};
+char mode_8x8[8] = {0xAA, 0x55, 0xF0, 0x00, 0x02, 0x00, 0x00, 0x08};
+char time_setup[8] = {0xAA, 0x55, 0xF0, 0x00, 0x14, 0x00, 0x00, 0x40};    //0x14 low , 0x00 high
+
 bool read_valid = false;
 bool crc_valid = false;
+bool setup = false;
 
 unsigned long crc_data;
 unsigned long crc_recieved;
@@ -38,6 +45,7 @@ float amplitude = 0; 	//0-2500
 
 int set_serial(int fd, int nSpeed, int nBits, char nEvent, int nStop) ;
 void serial_init();
+bool lidar_setup();
 int next_data_handle(int addr);
 int next_data_handle(int addr , int count) ;
 void write_data(char data);
@@ -62,15 +70,23 @@ int main(int argc, char **argv)
     }
 
 	serial_init();
-	while(ros::ok())
+	setup = lidar_setup();
+	if(setup)
+	{
+		ROS_INFO("Lidar mode: Output 1*1 data.");
+		ROS_INFO("Frequency: 50Hz.");
+	}
+	
+	while(ros::ok() && setup)
 	{
 		read_data();
-		ROS_INFO("crc calculated:%lu",crc_data);
-		ROS_INFO("crc crc_recieved:%lu", crc_recieved);
-		if(read_valid && crc_valid)
+		// ROS_INFO("crc calculated:%lu",crc_data);
+		// ROS_INFO("crc crc_recieved:%lu", crc_recieved);
+		//if(read_valid && crc_valid)
+		if(read_valid)
 		{
 			msg.header.stamp = ros::Time::now();
-			msg.distance.data = distance;
+			msg.distance.data = distance / 100.0;
 			msg.amplitude.data = amplitude;
 			lidar_pub.publish(msg);
 
@@ -200,6 +216,58 @@ void serial_init()
 	}
 }
 
+bool lidar_setup()
+{
+	ret = write(serial_fd, setup_enter, 8);
+	if (ret <= 0)  
+	{
+		ROS_INFO("write Error!");  
+		return false;
+	}
+	memset(read_buf, 0, BUF_SIZE);
+	ret = read(serial_fd, read_buf, 8);
+	if(ret <= 0)
+	{
+		ROS_INFO("Setup Error!");  
+		return false;
+	}else
+	{
+		ret = write(serial_fd, time_setup, 8);
+		if (ret <= 0)    
+		{
+			ROS_INFO("write Error!");  
+			return false;
+		}
+		memset(read_buf, 0, BUF_SIZE);
+		ret = read(serial_fd, read_buf, 8);
+		if(ret <= 0)
+		{
+			ROS_INFO("Setup Error!");  
+			return false;
+		}else
+		{
+			ret = write(serial_fd, setup_exit, 8);
+			if (ret <= 0)  
+			{
+				ROS_INFO("write Error!");  
+				return false;
+			}else
+			{
+				memset(read_buf, 0, BUF_SIZE);
+				ret = read(serial_fd, read_buf, 8);
+				if(ret <= 0)
+				{
+					ROS_INFO("Setup Error!");  
+					return false;
+				}else
+				{
+					return true;
+				}
+			}
+		}
+	}
+}
+
 int next_data_handle(int addr) {
 	return (addr + 1) == MAXSIZE ? 0 : (addr + 1);
 }
@@ -255,23 +323,23 @@ void read_data()
 		}
 	}
 
-	for(int i = 0; i < 5 ; i++)
-	{
-		crc_buf[i] = ((unsigned long)data_buf[4*i+3]<<24) | ((unsigned long)data_buf[4*i+2]<<16) | ((unsigned long)data_buf[4*i+1]<<8) | ((unsigned long)data_buf[4*i+0]);
-	}
-	crc_data = crc32gen(crc_buf, 5);
-	crc_recieved = ((unsigned long)data_buf[23]<<24) | ((unsigned long)data_buf[22]<<16) | ((unsigned long)data_buf[21]<<8) | ((unsigned long)data_buf[20]) ;
+	// for(int i = 0; i < 5 ; i++)
+	// {
+	// 	crc_buf[i] = ((unsigned long)data_buf[4*i+3]<<24) | ((unsigned long)data_buf[4*i+2]<<16) | ((unsigned long)data_buf[4*i+1]<<8) | ((unsigned long)data_buf[4*i+0]);
+	// }
+	// crc_data = crc32gen(crc_buf, 20);
+	// crc_recieved = ((unsigned long)data_buf[23]<<24) | ((unsigned long)data_buf[22]<<16) | ((unsigned long)data_buf[21]<<8) | ((unsigned long)data_buf[20]) ;
 
 	if(crc_data == crc_recieved)
 	{
 		crc_valid = true;
 	}
 
-	if(read_valid && crc_valid)
+	//if(read_valid && crc_valid)
+	if(read_valid)
 	{
-		distance = ((short)data_buf[9]<<8) | ((short)data_buf[8]) ;
-		amplitude = ((short)data_buf[13]<<8) | ((short)data_buf[12]) ;
-		
+		distance = ((long)data_buf[11]<<24 | (long)data_buf[10]<<16 | (long)data_buf[9]<<8 | (long)data_buf[8]) ;
+		amplitude = ((long)data_buf[15]<<24 | (long)data_buf[14]<<16 | (long)data_buf[13]<<8 | (long)data_buf[12]) ;
 	}
 }
 
