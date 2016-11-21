@@ -39,8 +39,8 @@ private:
 	int read_addr;
 	int write_addr;
 
-	unsigned long crc_data;
-	unsigned long crc_recieved;
+	unsigned int crc_data;
+	unsigned int crc_recieved;
 
 	bool read_valid;
 	bool crc_valid;
@@ -63,7 +63,7 @@ private:
 	int next_data_handle(int addr);
 	int next_data_handle(int addr,int count);
 	void write_data(char data);
-	unsigned long crc32gen(unsigned long data[], unsigned long size);
+	unsigned int crc32gen(unsigned int data[], unsigned int size);
 	
 };
 

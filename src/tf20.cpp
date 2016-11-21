@@ -267,24 +267,24 @@ void TF20::read_data()
 		amplitude = ((long)data_buf[15]<<24 | (long)data_buf[14]<<16 | (long)data_buf[13]<<8 | (long)data_buf[12]) ;
 	}
 
-	crc_data = crc32gen((unsigned long*)data_buf, 5);
-	crc_recieved = ((unsigned long)data_buf[23]<<24) | ((unsigned long)data_buf[22]<<16) | ((unsigned long)data_buf[21]<<8) | ((unsigned long)data_buf[20]) ;
+	crc_data = crc32gen((unsigned int*)data_buf, 5);
+	crc_recieved = ((unsigned int)data_buf[23]<<24) | ((unsigned int)data_buf[22]<<16) | ((unsigned int)data_buf[21]<<8) | ((unsigned int)data_buf[20]) ;
 
 	if(crc_data == crc_recieved)
 	{
 		crc_valid = true;
 	}
 
-	//if(read_valid && crc_valid)
-	if(read_valid)
+	if(read_valid && crc_valid)
+	//if(read_valid)
 	{
 		data_valid = true;
 	}
 }
 
-unsigned long TF20::crc32gen(unsigned long data[], unsigned long size)
+unsigned int TF20::crc32gen(unsigned int data[], unsigned int size)
 {
-	unsigned long temp, crc = 0xFFFFFFFF;
+	unsigned int temp, crc = 0xFFFFFFFF;
 	for(int i = 0; i < size; i++)
 	{
 		temp = data[i];
