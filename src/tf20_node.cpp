@@ -37,9 +37,8 @@ bool crc_valid = false;
 bool setup = false;
 bool first_measure = false;
 
-unsigned long crc_data;
-unsigned long crc_recieved;
-unsigned long crc_buf[5];
+unsigned int crc_data;
+unsigned int crc_recieved;
 
 de_lidar::Lidar msg;
 float distance = 0;
@@ -53,7 +52,7 @@ int next_data_handle(int addr);
 int next_data_handle(int addr , int count) ;
 void write_data(char data);
 void read_data();
-unsigned long crc32gen(unsigned long data[], unsigned long size);
+unsigned int crc32gen(unsigned int data[], unsigned int size);
 
 int main(int argc, char **argv)
 {
@@ -65,6 +64,7 @@ int main(int argc, char **argv)
 	get_param(n_private);
 	serial_init();
 	setup = lidar_setup();
+
 	if(setup)
 	{
 		ROS_INFO("Lidar mode: Output 1*1 data.");
@@ -76,10 +76,10 @@ int main(int argc, char **argv)
 	while(ros::ok() && setup)
 	{
 		read_data();
-		// ROS_INFO("crc calculated:%lu",crc_data);
-		// ROS_INFO("crc recieved:%lu", crc_recieved);
-		//if(read_valid && crc_valid)
-		if(read_valid)
+		// ROS_INFO("crc calculated:%d",crc_data);
+		// ROS_INFO("crc recieved:%d", crc_recieved);
+		if(read_valid && crc_valid)
+		//if(read_valid)
 		{
 			msg.header.stamp = ros::Time::now();
 			msg.distance.data = distance / 100.0;
@@ -357,8 +357,8 @@ void read_data()
 		amplitude = ((long)data_buf[15]<<24 | (long)data_buf[14]<<16 | (long)data_buf[13]<<8 | (long)data_buf[12]) ;
 	}
 
-	crc_data = crc32gen((unsigned long*)data_buf, 5);
-	crc_recieved = ((unsigned long)data_buf[23]<<24) | ((unsigned long)data_buf[22]<<16) | ((unsigned long)data_buf[21]<<8) | ((unsigned long)data_buf[20]) ;
+	crc_data = crc32gen((unsigned int*)data_buf, 5);
+	crc_recieved = ((unsigned int)data_buf[23]<<24) | ((unsigned int)data_buf[22]<<16) | ((unsigned int)data_buf[21]<<8) | ((unsigned int)data_buf[20]) ;
 
 	if(crc_data == crc_recieved)
 	{
@@ -366,9 +366,9 @@ void read_data()
 	}
 }
 
-unsigned long crc32gen(unsigned long data[], unsigned long size)
+unsigned int crc32gen(unsigned int data[], unsigned int size)
 {
-	unsigned long temp, crc = 0xFFFFFFFF;
+	unsigned int temp, crc = 0xFFFFFFFF;
 	for(int i = 0; i < size; i++)
 	{
 		temp = data[i];
